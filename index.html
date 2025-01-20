@@ -6,6 +6,18 @@
 </head>
 <body>
     <h1>Welcome to the Voice Calling App</h1>
+    
+    <!-- Add User Form -->
+    <h2>Add User</h2>
+    <form id="add-user-form">
+        <input type="text" id="name" placeholder="Enter Name" required />
+        <input type="text" id="phone-number" placeholder="Enter Phone Number" required />
+        <button type="submit">Add User</button>
+            <!-- Add this to index.html -->
+            <h2>User List</h2>
+            <ul id="user-list"></ul>
+    </form>
+
     <button id="start-call">Start Call</button>
     <div id="call-popup" style="display: none;">
         <h3>Incoming Call</h3>
@@ -13,11 +25,59 @@
         <button id="reject">Reject</button>
     </div>
 
+
+
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        const serverUrl = "https://bug-free-spoon-5gx9g75rw99v3qrv-3000.app.github.dev";
+        const serverUrl = "https://bug-free-spoon-5gx9g75rw99v3qrv-3000.app.github.dev/";
         const socket = io(serverUrl);
 
+
+
+        const userList = document.getElementById('user-list');
+        // Listen for 'user-added' event
+socket.on('user-added', (newUser) => {
+    const listItem = document.createElement('li');
+    listItem.textContent = `${newUser.name} (${newUser.phone_number})`;
+    userList.appendChild(listItem);
+});
+
+// Fetch existing users on page load
+(async function fetchUsers() {
+    const response = await fetch(`${serverUrl}/users`);
+    const data = await response.json();
+
+    data.users.forEach((user) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = `${user.name} (${user.phone_number})`;
+        userList.appendChild(listItem);
+    });
+})();
+        // Add User Form Handling
+        const addUserForm = document.getElementById('add-user-form');
+        addUserForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const phoneNumber = document.getElementById('phone-number').value;
+
+            const response = await fetch(`${serverUrl}/add-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, phone_number: phoneNumber }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(`User added with ID: ${data.userId}`);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        });
+
+        // Simulate Call
         const startCallButton = document.getElementById('start-call');
         const callPopup = document.getElementById('call-popup');
         const acceptButton = document.getElementById('accept');
@@ -28,20 +88,43 @@
             alert('Call initiated! (Simulated)');
         });
 
-        socket.on('incoming-call', (data) => {
-            callPopup.style.display = 'block';
-        });
 
-        acceptButton.addEventListener('click', () => {
-            socket.emit('accept-call', { from: 'your-id-placeholder' });
-            callPopup.style.display = 'none';
-            alert('Call accepted! (Simulated)');
-        });
+        // Listen for incoming calls
+socket.on('incoming-call', (data) => {
+    callPopup.style.display = 'block';
+    callPopup.dataset.caller = data.from; // Save the caller's ID
+});
+
+// Accept a call
+acceptButton.addEventListener('click', () => {
+    const callerId = callPopup.dataset.caller;
+    socket.emit('accept-call', { from: callerId });
+    callPopup.style.display = 'none';
+    alert('Call accepted!');
+});
+
+// Reject a call
+rejectButton.addEventListener('click', () => {
+    callPopup.style.display = 'none';
+    alert('Call rejected!');
+});
+
+// Notify when a call is accepted
+socket.on('call-accepted', (data) => {
+    alert(`Call accepted by user: ${data.from}`);
+});
+
+// Handle user disconnection (optional)
+socket.on('user-disconnected', (data) => {
+    alert(`User ${data.id} disconnected.`);
+});
+
 
         rejectButton.addEventListener('click', () => {
             callPopup.style.display = 'none';
             alert('Call rejected! (Simulated)');
         });
+        
     </script>
 </body>
 </html>
